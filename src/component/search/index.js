@@ -101,37 +101,63 @@ export const Search = function () {
 
   this.engine = {};
 
-  this.engine.set = () => {
+    this.engine.set = () => {
+    const current = state.get.current();
+    const isCustom = current.header.search.engine.selected === 'custom';
 
-    switch (state.get.current().header.search.engine.selected) {
-
-      case 'custom':
-
-        if (isValidString(state.get.current().header.search.engine.custom.queryName) && isValidString(state.get.current().header.search.engine.custom.url)) {
-
-          this.element.input.text.name = state.get.current().header.search.engine.custom.queryName;
-
-          this.element.form.setAttribute('action', state.get.current().header.search.engine.custom.url);
-
-        } else {
-
-          this.element.input.text.name = '';
-
-          this.element.form.setAttribute('action', '');
-
-        }
-
-        break;
-
-      default:
-
-        this.element.input.text.name = 'q';
-
-        this.element.form.setAttribute('action', searchEnginePreset[state.get.current().header.search.engine.selected].url);
-
-        break;
-
+    if (isCustom) {
+      const customUrl = current.header.search.engine.custom.url;
+      // 如果发现 URL 里包含 %s，说明是复杂 URL，我们取消表单的默认 action 提交
+      if (customUrl.includes('%s')) {
+        this.element.form.setAttribute('action', '#'); 
+        this.element.input.text.name = ''; 
+      } else {
+        // 传统的简单 URL (如 google.com/search)
+        this.element.input.text.name = current.header.search.engine.custom.queryName || 'q';
+        this.element.form.setAttribute('action', customUrl);
+      }
+    } else {
+      // 预设引擎逻辑
+      this.element.input.text.name = 'q';
+      this.element.form.setAttribute('action', searchEnginePreset[current.header.search.engine.selected].url);
     }
+
+    if (current.header.search.newTab) {
+      this.element.form.setAttribute('target', '_blank');
+    }
+  };
+
+  // this.engine.set = () => {
+
+  //   switch (state.get.current().header.search.engine.selected) {
+
+  //     case 'custom':
+
+  //       if (isValidString(state.get.current().header.search.engine.custom.queryName) && isValidString(state.get.current().header.search.engine.custom.url)) {
+
+  //         this.element.input.text.name = state.get.current().header.search.engine.custom.queryName;
+
+  //         this.element.form.setAttribute('action', state.get.current().header.search.engine.custom.url);
+
+  //       } else {
+
+  //         this.element.input.text.name = '';
+
+  //         this.element.form.setAttribute('action', '');
+
+  //       }
+
+  //       break;
+
+  //     default:
+
+  //       this.element.input.text.name = 'q';
+
+  //       this.element.form.setAttribute('action', searchEnginePreset[state.get.current().header.search.engine.selected].url);
+
+  //       break;
+
+  //   }
 
     if (state.get.current().header.search.newTab) {
       this.element.form.setAttribute('target', '_blank');
@@ -210,6 +236,27 @@ export const Search = function () {
     this.element.form.appendChild(this.element.clear.button);
 
     this.element.search.appendChild(this.element.form);
+    
+        // 拦截回车提交事件
+    this.element.form.addEventListener('submit', (e) => {
+      const current = state.get.current();
+      const customUrl = current.header.search.engine.custom.url;
+      const query = this.element.input.text.value;
+
+      // 如果是自定义引擎且带有 %s 占位符
+      if (current.header.search.engine.selected === 'custom' && customUrl.includes('%s')) {
+        e.preventDefault(); // 阻止原生的表单提交
+        
+        // 核心逻辑：替换 %s 并手动编码
+        const finalUrl = customUrl.replace('%s', encodeURIComponent(query));
+        
+        if (current.header.search.newTab) {
+          window.open(finalUrl, '_blank');
+        } else {
+          window.location.href = finalUrl;
+        }
+      }
+    });
 
   };
 
